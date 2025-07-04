@@ -173,15 +173,27 @@ class ClassificationWindow(tk.Toplevel):
             # Создаём круговую диаграмму
             fig, ax = plt.subplots(figsize=(5, 3))
             colors = plt.cm.Pastel1.colors
-            ax.pie(
-                filtered_percentages,
-                labels=filtered_labels,
-                autopct="%1.1f%%",
-                startangle=90,
-                colors=colors,
-                textprops={"fontsize": 10}
-            )
+
+            if len(filtered_labels) > 2:
+                wedges, _ = ax.pie(
+                    filtered_percentages,
+                    startangle=90,
+                    colors=colors,
+                    textprops={"fontsize": 10}
+                )
+                ax.legend(wedges, filtered_labels, title="Классы", loc="center left", bbox_to_anchor=(1.0, 0.5))
+            else:
+                ax.pie(
+                    filtered_percentages,
+                    labels=filtered_labels,
+                    autopct="%1.1f%%",
+                    startangle=90,
+                    colors=colors,
+                    textprops={"fontsize": 10}
+                )
+
             ax.axis("equal")
+            fig.tight_layout()
 
             self.canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
             self.canvas.draw()

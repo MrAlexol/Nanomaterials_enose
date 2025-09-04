@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 import joblib
+import csv
 from matplotlib.backends import _backend_tk
 _backend_tk.Show._mainloop = False
 import matplotlib.pyplot as plt
@@ -75,10 +76,11 @@ class ClassificationWindow(tk.Toplevel):
         self.canvas = None
         self.canvas_frame.pack_forget()
 
-        bottom_frame = tk.Frame(self)
-        bottom_frame.pack(fill="x", side="bottom", padx=10, pady=10)
-        back_btn = tk.Button(bottom_frame, text="Назад", command=self.go_back)
-        back_btn.pack(anchor="w")
+        self.bottom_frame = tk.Frame(self)
+        self.bottom_frame.pack(fill="x", side="bottom", padx=10, pady=10)
+
+        back_btn = tk.Button(self.bottom_frame, text="Назад", command=self.go_back)
+        back_btn.pack(side="left", anchor="w")
 
         if self.has_conflict_labels:
             self.after(100, lambda: messagebox.showwarning("Предупреждение", "Найдены похожие классы!"))
@@ -129,6 +131,26 @@ class ClassificationWindow(tk.Toplevel):
             self.canvas.get_tk_widget().destroy()
             self.canvas = None
         self.go_back()
+    
+    def export_result(self):
+        if not hasattr(self, "labels") or not hasattr(self, "percentages"):
+            messagebox.showwarning("Предупреждение", "Нет данных для экспорта.")
+            return
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV файлы", "*.csv")],
+            title="Сохранить результаты классификации"
+        )
+        if path:
+            try:
+                with open(path, mode="w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f, delimiter=";")
+                    writer.writerow(["газ", "результат"])
+                    for label, perc in zip(self.labels, self.percentages):
+                        writer.writerow([label, f"{perc:.2f}%"])
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось сохранить файл:\n{e}")
 
     def save_model(self):
         if hasattr(self.master, "classifier"):
@@ -172,20 +194,45 @@ class ClassificationWindow(tk.Toplevel):
 
             # Создаём круговую диаграмму
             fig, ax = plt.subplots(figsize=(5, 3))
-            colors = plt.cm.Pastel1.colors
+            base_colors = list(plt.cm.Pastel1.colors)
 
-            if len(filtered_labels) > 2:
+            labels = list(filtered_labels)
+            percentages = list(filtered_percentages)
+
+            self.labels = labels
+            self.percentages = percentages
+
+            # Если классов больше 10 → объединяем остальные в "Другое"
+            if len(labels) > 10:
+                main_labels = labels[:9]
+                main_percentages = percentages[:9]
+
+                other_percentage = sum(percentages[9:])
+                if other_percentage > 0:
+                    main_labels.append("Другое")
+                    main_percentages.append(other_percentage)
+
+                labels = main_labels
+                percentages = main_percentages
+
+            # Подбираем цвета
+            colors = base_colors[:len(labels)]
+            if "Другое" in labels:
+                colors.append("#F7EAA0")
+
+            # Если много классов (более 2), используем легенду
+            if len(labels) > 2:
                 wedges, _ = ax.pie(
-                    filtered_percentages,
+                    percentages,
                     startangle=90,
                     colors=colors,
                     textprops={"fontsize": 10}
                 )
-                ax.legend(wedges, filtered_labels, title="Классы", loc="center left", bbox_to_anchor=(1.0, 0.5))
+                ax.legend(wedges, labels, title="Классы", loc="center left", bbox_to_anchor=(1.0, 0.5))
             else:
                 ax.pie(
-                    filtered_percentages,
-                    labels=filtered_labels,
+                    percentages,
+                    labels=labels,
                     autopct="%1.1f%%",
                     startangle=90,
                     colors=colors,
@@ -214,6 +261,15 @@ class ClassificationWindow(tk.Toplevel):
             self.model_info_panel.pack_forget()
             self.class_list.pack_forget()
             self.canvas_frame.pack(fill="both", expand=True)
+
+            # Добавляем кнопку экспорта
+            if not hasattr(self, "export_btn") or not self.export_btn.winfo_exists():
+                self.export_btn = tk.Button(
+                    self.bottom_frame,
+                    text="Экспортировать результаты",
+                    command=self.export_result
+                )
+                self.export_btn.pack(side="right", anchor="e")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при классификации:\n{e}")

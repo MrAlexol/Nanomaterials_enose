@@ -144,9 +144,9 @@ class ClassificationWindow(tk.Toplevel):
         )
         if path:
             try:
-                with open(path, mode="w", newline="", encoding="utf-8") as f:
+                with open(path, mode="w", newline="", encoding="1251") as f:
                     writer = csv.writer(f, delimiter=";")
-                    writer.writerow(["газ", "результат"])
+                    writer.writerow(["Газ", "Результат"])
                     for label, perc in zip(self.labels, self.percentages):
                         writer.writerow([label, f"{perc:.2f}%"])
             except Exception as e:
